@@ -1,6 +1,12 @@
 <template>
   <div class="q-pa-md">
-    <q-stepper v-model="step" vertical color="primary" animated>
+    <q-stepper
+      v-model="step"
+      vertical
+      color="primary"
+      animated
+      class="relative-position"
+    >
       <q-step
         :name="1"
         title="Connect to EVM Wallet"
@@ -55,6 +61,8 @@
         icon="create_new_folder"
         :done="step > 3"
       >
+        Upload your image and metadata file to IPFS network.
+
         <q-btn color="purple" @click="ipfs">IPFS</q-btn>
 
         <q-stepper-navigation>
@@ -80,14 +88,16 @@
         icon="create_new_folder"
         :done="step > 4"
       >
-        Pay for pinning on Crust Network.
+        Pay for pinning twice, once for the image and once for the metadata
+        file. There is a XCM transfer occuring to the Crust Network.
+
         <q-btn color="purple" @click="pin">Pin</q-btn>
 
         <q-stepper-navigation>
           <q-btn @click="step = 5" color="primary" label="Continue" />
           <q-btn
             flat
-            @click="step = 4"
+            @click="step = 3"
             color="primary"
             label="Back"
             class="q-ml-sm"
@@ -101,20 +111,45 @@
         icon="create_new_folder"
         :done="step > 5"
       >
-        An ad group contains one or more ads which target a shared set of
-        keywords.
+        You can now mint your NFT.
+
+        <q-btn color="purple" @click="mint">Mint</q-btn>
 
         <q-stepper-navigation>
-          <q-btn @click="step = 4" color="primary" label="Continue" />
+          <q-btn @click="step = 6" color="primary" label="Continue" />
           <q-btn
             flat
-            @click="step = 1"
+            @click="step = 4"
             color="primary"
             label="Back"
             class="q-ml-sm"
           />
         </q-stepper-navigation>
       </q-step>
+
+      <q-step
+        :name="6"
+        title="View NFT"
+        icon="create_new_folder"
+        :done="step > 5"
+      >
+        To view your NFT, go to the tofuNFT.com marketplace.
+
+        <q-btn color="purple" target="_blank" :href="tofuURL">View</q-btn>
+
+        <q-stepper-navigation>
+          <q-btn
+            flat
+            @click="step = 5"
+            color="primary"
+            label="Back"
+            class="q-ml-sm"
+          />
+        </q-stepper-navigation>
+      </q-step>
+      <q-inner-loading :showing="visible">
+        <q-spinner-dots size="250px" color="primary" />
+      </q-inner-loading>
     </q-stepper>
   </div>
 </template>
@@ -128,7 +163,7 @@ import FactoryNFT from "/public/FactoryNFT.json";
 import { create } from "ipfs-http-client";
 import { Buffer } from "buffer";
 import * as htmlToImage from "html-to-image";
-import { toPng } from "html-to-image";
+// import { toPng } from "html-to-image";
 
 // Look at Web3-Onboard documentation here: https://onboard.blocknative.com/docs/overview/introduction
 const wallets = [injectedModule()];
@@ -186,6 +221,9 @@ export default defineComponent({
       address: null,
       sig: null,
       metadatafileStat: null,
+      tokenURI: null,
+      tofuURL: null,
+      visible: false,
       onboard: [],
       files: [],
       wallet: null,
@@ -194,21 +232,17 @@ export default defineComponent({
       connectWallet: [],
       disconnectConnectedWallet: [],
       connectedWallet: [],
+      FactoryNFT,
     };
   },
   computed: {},
   watch: {},
   async mounted() {
     this.onboard = useOnboard();
-
-    try {
-      const img = await this.image();
-    } catch (error) {
-      console.log("img error", error);
-    }
   },
   methods: {
     async connect() {
+      this.visible = true;
       const connect = await this.onboard.connectWallet();
       this.wallet = await this.onboard.connectedWallet;
 
@@ -217,15 +251,9 @@ export default defineComponent({
         this.signer = this.provider.getSigner();
         this.address = await this.signer.getAddress();
         this.set();
-
-        // this.contract = new ethers.Contract(
-        //   this.contractAddress,
-        //   FactoryNFT.abi,
-        //   this.provider.getSigner()
-        // );
-        // console.log("contract", this.contract);
       }
 
+      this.visible = false;
       return { connect };
     },
     async getNextTokenId() {
@@ -239,8 +267,10 @@ export default defineComponent({
       return currentTokenId.add(1).toNumber();
     },
     async sign() {
+      this.visible = true;
       this.sig = await this.signer.signMessage(this.address);
       console.log("sig", this.sig);
+      this.visible = false;
     },
     set() {
       this.onboard.setChain({ wallet: "MetaMask", chainId: "0x150" });
@@ -253,6 +283,8 @@ export default defineComponent({
       // Create a new canvas
       // const canvas = createCanvas(width, height);
       const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
 
       // Get the 2D rendering context of the canvas
       const ctx = canvas.getContext("2d");
@@ -300,6 +332,7 @@ export default defineComponent({
       return buffer;
     },
     async ipfs() {
+      this.visible = true;
       const tokenId = await this.getNextTokenId();
       const now = Date.now();
 
@@ -322,11 +355,11 @@ export default defineComponent({
 
       const authHeaderRaw = `eth-${this.address}:${this.sig}`;
       const authHeader = Buffer.from(authHeaderRaw).toString("base64");
-      const ipfsW3GW = "https://crustipfs.xyz";
+      const ipfsW3GW = ["https://crustipfs.xyz", "https://gw.crustfiles.app"];
 
       // 1. Create IPFS instant
       const ipfs = create({
-        url: `${ipfsW3GW}/api/v0`,
+        url: `${ipfsW3GW[1]}/api/v0`,
         headers: {
           authorization: `Basic ${authHeader}`,
         },
@@ -375,8 +408,13 @@ export default defineComponent({
         `/ipfs/${cidMetadata.cid.toString()}/${metadataFileDetails.path}`
       );
       console.log("type:", this.metadatafileStat.type);
+      this.tokenURI = `https://crustipfs.live/ipfs/${cidMetadata.cid.toString()}/${
+        metadataFileDetails.path
+      }`;
+      this.visible = false;
     },
     async pin() {
+      this.visible = true;
       // Define StorageOrder contract ABI
       const StorageOrderABI = [
         "function getPrice(uint size) public view returns (uint price)",
@@ -410,6 +448,9 @@ export default defineComponent({
             file.size
           }: ${ethers.utils.formatEther(price)} SDN`
         );
+
+        console.log("file.cid, file.size, price", file.cid, file.size, price);
+
         const txResponse = await storageOrder.placeOrder(file.cid, file.size, {
           value: price,
         });
@@ -419,9 +460,32 @@ export default defineComponent({
         );
         console.log(`Transaction hash: ${txReceipt.transactionHash}`);
       }
+      this.visible = false;
+    },
+    async mint() {
+      this.visible = true;
+      // Get signer and provider
+      const provider = new ethers.providers.Web3Provider(this.wallet.provider);
+      const signer = provider.getSigner();
 
-      // to be retreived later from the ipfs gateway
-      // https://crustipfs.live/ipfs/QmP15vTxLrqhA822cm98GHieg5WKG9UhmAVDaYqzgpGWL5/27.png
+      const contract = new ethers.Contract(
+        this.contractAddress,
+        this.FactoryNFT.abi,
+        signer
+      );
+
+      // Mint the NFT
+      const txResponse = await contract.mintNFT(this.tokenURI);
+      const txReceipt = await txResponse.wait();
+      const [transferEvent] = txReceipt.events;
+      const { tokenId } = transferEvent.args;
+      console.log("NFT minted successfully!");
+      console.log(`NFT tokenId: ${tokenId}`);
+
+      const tokenURIonchain = await contract.tokenURI(tokenId);
+      console.log("tokenURI", tokenURIonchain);
+      this.tofuURL = `https://tofunft.com/nft/shiden/${this.contractAddress}/${tokenId}`;
+      this.visible = false;
     },
   },
 });
