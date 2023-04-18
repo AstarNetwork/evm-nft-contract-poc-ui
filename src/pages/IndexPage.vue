@@ -13,7 +13,12 @@
         <q-btn color="purple" @click="connect">Connect</q-btn>
 
         <q-stepper-navigation>
-          <q-btn @click="step = 2" color="primary" label="Continue" />
+          <q-btn
+            :disable="!wallet"
+            @click="step = 2"
+            color="primary"
+            label="Continue"
+          />
         </q-stepper-navigation>
       </q-step>
 
@@ -28,7 +33,12 @@
         <q-btn color="purple" @click="sign">Sign</q-btn>
 
         <q-stepper-navigation>
-          <q-btn @click="step = 3" color="primary" label="Continue" />
+          <q-btn
+            :disable="!sig"
+            @click="step = 3"
+            color="primary"
+            label="Continue"
+          />
           <q-btn
             flat
             @click="step = 1"
@@ -48,7 +58,12 @@
         <q-btn color="purple" @click="ipfs">IPFS</q-btn>
 
         <q-stepper-navigation>
-          <q-btn @click="step = 4" color="primary" label="Continue" />
+          <q-btn
+            :disable="!metadatafileStat"
+            @click="step = 4"
+            color="primary"
+            label="Continue"
+          />
           <q-btn
             flat
             @click="step = 2"
@@ -65,8 +80,8 @@
         icon="create_new_folder"
         :done="step > 4"
       >
-        An ad group contains one or more ads which target a shared set of
-        keywords.
+        Pay for pinning on Crust Network.
+        <q-btn color="purple" @click="pin">Pin</q-btn>
 
         <q-stepper-navigation>
           <q-btn @click="step = 5" color="primary" label="Continue" />
@@ -112,7 +127,8 @@ import { ethers } from "ethers";
 import FactoryNFT from "/public/FactoryNFT.json";
 import { create } from "ipfs-http-client";
 import { Buffer } from "buffer";
-import * as PImage from "pureimage";
+import * as htmlToImage from "html-to-image";
+import { toPng } from "html-to-image";
 
 // Look at Web3-Onboard documentation here: https://onboard.blocknative.com/docs/overview/introduction
 const wallets = [injectedModule()];
@@ -169,8 +185,10 @@ export default defineComponent({
       contract: null,
       address: null,
       sig: null,
+      metadatafileStat: null,
       onboard: [],
-      wallet: [],
+      files: [],
+      wallet: null,
       signer: [],
       provider: [],
       connectWallet: [],
@@ -180,8 +198,14 @@ export default defineComponent({
   },
   computed: {},
   watch: {},
-  mounted() {
+  async mounted() {
     this.onboard = useOnboard();
+
+    try {
+      const img = await this.image();
+    } catch (error) {
+      console.log("img error", error);
+    }
   },
   methods: {
     async connect() {
@@ -228,7 +252,7 @@ export default defineComponent({
 
       // Create a new canvas
       // const canvas = createCanvas(width, height);
-      const canvas = PImage.make(width, height);
+      const canvas = document.createElement("canvas");
 
       // Get the 2D rendering context of the canvas
       const ctx = canvas.getContext("2d");
@@ -272,9 +296,7 @@ export default defineComponent({
       }
 
       // Convert the canvas to a PNG buffer
-      // const buffer = canvas.toBuffer("image/png");
-      const image = canvas.make(width, height);
-      const buffer = canvas.encodePNGToBuffer(image);
+      const buffer = await htmlToImage.toPng(canvas);
       return buffer;
     },
     async ipfs() {
@@ -324,7 +346,11 @@ export default defineComponent({
       metadata.image = `ipfs://${cidImage.cid.toString()}/${
         imageFileDetails.path
       }`;
-      console.log("cidImage:", cidImage);
+      console.log("cidImage:", JSON.stringify(cidImage));
+      this.files.push({
+        cid: cidImage.cid.toString(),
+        size: cidImage.size,
+      });
 
       // 3. Get file status from ipfs
       const fileStatImage = await ipfs.files.stat(
@@ -338,13 +364,64 @@ export default defineComponent({
       };
 
       const cidMetadata = await ipfs.add(metadataFileDetails, options);
-      console.log("cidMetadata:", cidMetadata);
+      console.log("cidMetadata:", JSON.stringify(cidMetadata));
+      this.files.push({
+        cid: cidMetadata.cid.toString(),
+        size: cidMetadata.size,
+      });
 
       // 3. Get file status from ipfs
-      const metadatafileStat = await ipfs.files.stat(
+      this.metadatafileStat = await ipfs.files.stat(
         `/ipfs/${cidMetadata.cid.toString()}/${metadataFileDetails.path}`
       );
-      console.log("type:", metadatafileStat.type);
+      console.log("type:", this.metadatafileStat.type);
+    },
+    async pin() {
+      // Define StorageOrder contract ABI
+      const StorageOrderABI = [
+        "function getPrice(uint size) public view returns (uint price)",
+        "function placeOrder(string cid, uint64 size) public payable",
+        "function placeOrderWithNode(string cid, uint size, address nodeAddress) public payable",
+        "event Order(address customer, address merchant, string cid, uint size, uint price)",
+      ];
+
+      // Define StorageOrder contract address for Shiden network
+      const StorageOrderAddress = "0x10f15729aEFB5165a90be683DC598070F91367F0";
+
+      // Get signer and provider
+      const provider = new ethers.providers.Web3Provider(this.wallet.provider);
+      const signer = provider.getSigner();
+
+      // Get balance
+      const balance = await provider.getBalance(this.address);
+      console.log("balance:", ethers.utils.formatEther(balance), "SDN");
+
+      // Get prices and place orders for each file
+      for (const file of this.files) {
+        const storageOrder = new ethers.Contract(
+          StorageOrderAddress,
+          StorageOrderABI,
+          signer
+        );
+
+        const price = await storageOrder.getPrice(file.size);
+        console.log(
+          `Price for file CID ${file.cid} with size ${
+            file.size
+          }: ${ethers.utils.formatEther(price)} SDN`
+        );
+        const txResponse = await storageOrder.placeOrder(file.cid, file.size, {
+          value: price,
+        });
+        const txReceipt = await txResponse.wait();
+        console.log(
+          `File CID ${file.cid} with size ${file.size} pinned successfully!`
+        );
+        console.log(`Transaction hash: ${txReceipt.transactionHash}`);
+      }
+
+      // to be retreived later from the ipfs gateway
+      // https://crustipfs.live/ipfs/QmP15vTxLrqhA822cm98GHieg5WKG9UhmAVDaYqzgpGWL5/27.png
     },
   },
 });
