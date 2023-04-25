@@ -10,10 +10,13 @@
     "format": "prettier --write \"**/*.{js,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
-    "build": "quasar build"
+    "build": "quasar build",
+    "deploy": "vercel"
   },
   "dependencies": {
     "@quasar/extras": "^1.0.0",
+    "@quasar/app-webpack": "^3.0.0",
+    "@quasar/quasar-app-extension-qmarkdown": "^2.0.0-beta.7",
     "@web3-onboard/injected-wallets": "^2.8.4",
     "@web3-onboard/vue": "^2.6.2",
     "axios": "^1.2.1",
@@ -27,8 +30,6 @@
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.13.14",
-    "@quasar/app-webpack": "^3.0.0",
-    "@quasar/quasar-app-extension-qmarkdown": "^2.0.0-beta.7",
     "eslint": "^8.10.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-vue": "^9.0.0",
