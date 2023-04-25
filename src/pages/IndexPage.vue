@@ -91,10 +91,26 @@
         Pay for pinning twice, once for the image and once for the metadata
         file. There is a XCM transfer occuring to the Crust Network.
 
+        <q-expansion-item
+          expand-separator
+          icon="code"
+          label="Show solidity function placeOrder with XCM code"
+          header-class="bg-primary text-white"
+          expand-icon-class="text-white"
+          class="q-my-md shadow-1 overflow-hidden"
+        >
+          <q-markdown :src="placeOrder" class="q-pa-md" />
+        </q-expansion-item>
+
         <q-btn color="purple" @click="pin">Pin</q-btn>
 
         <q-stepper-navigation>
-          <q-btn @click="step = 5" color="primary" label="Continue" />
+          <q-btn
+            @click="step = 5"
+            color="primary"
+            label="Continue"
+            :disable="!balance"
+          />
           <q-btn
             flat
             @click="step = 3"
@@ -155,15 +171,15 @@
 </template>
 
 <script>
+// eslint-disable prettier/prettier
 import { defineComponent, ref } from "vue";
 import { init, useOnboard } from "@web3-onboard/vue";
 import injectedModule from "@web3-onboard/injected-wallets";
 import { ethers } from "ethers";
 import FactoryNFT from "/public/FactoryNFT.json";
+import placeOrder from "/public/placeOrder.md";
 import { create } from "ipfs-http-client";
 import { Buffer } from "buffer";
-import * as htmlToImage from "html-to-image";
-// import { toPng } from "html-to-image";
 
 // Look at Web3-Onboard documentation here: https://onboard.blocknative.com/docs/overview/introduction
 const wallets = [injectedModule()];
@@ -224,6 +240,7 @@ export default defineComponent({
       tokenURI: null,
       tofuURL: null,
       visible: false,
+      balance: null,
       onboard: [],
       files: [],
       wallet: null,
@@ -233,6 +250,7 @@ export default defineComponent({
       disconnectConnectedWallet: [],
       connectedWallet: [],
       FactoryNFT,
+      placeOrder,
     };
   },
   computed: {},
@@ -276,60 +294,61 @@ export default defineComponent({
       this.onboard.setChain({ wallet: "MetaMask", chainId: "0x150" });
     },
     async image() {
-      // Set the size of the image
-      const width = 200;
-      const height = 200;
+      return new Promise((resolve) => {
+        // Set the size of the image
+        const width = 200;
+        const height = 200;
 
-      // Create a new canvas
-      // const canvas = createCanvas(width, height);
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
+        // Create a new canvas
+        // const canvas = createCanvas(width, height);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
 
-      // Get the 2D rendering context of the canvas
-      const ctx = canvas.getContext("2d");
+        // Get the 2D rendering context of the canvas
+        const ctx = canvas.getContext("2d");
 
-      // Set the background color to a random color
-      ctx.fillStyle = `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(
-        Math.random() * 256
-      )}, ${Math.floor(Math.random() * 256)})`;
-      ctx.fillRect(0, 0, width, height);
-
-      // Draw random colored squares, triangles, and circles
-      const shapes = ["square", "triangle", "circle"];
-      for (let i = 0; i < 10; i++) {
-        // Generate a random shape and color
-        const shape = shapes[Math.floor(Math.random() * shapes.length)];
-        const color = `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(
+        // Set the background color to a random color
+        ctx.fillStyle = `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(
           Math.random() * 256
         )}, ${Math.floor(Math.random() * 256)})`;
+        ctx.fillRect(0, 0, width, height);
 
-        // Generate random coordinates and size for the shape
-        const x = Math.floor(Math.random() * (width - 50));
-        const y = Math.floor(Math.random() * (height - 50));
-        const size = Math.floor(Math.random() * 50) + 10;
+        // Draw random colored squares, triangles, and circles
+        const shapes = ["square", "triangle", "circle"];
+        for (let i = 0; i < 10; i++) {
+          // Generate a random shape and color
+          const shape = shapes[Math.floor(Math.random() * shapes.length)];
+          const color = `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(
+            Math.random() * 256
+          )}, ${Math.floor(Math.random() * 256)})`;
 
-        // Draw the shape with the random color
-        ctx.fillStyle = color;
-        if (shape === "square") {
-          ctx.fillRect(x, y, size, size);
-        } else if (shape === "triangle") {
-          ctx.beginPath();
-          ctx.moveTo(x + size / 2, y);
-          ctx.lineTo(x + size, y + size);
-          ctx.lineTo(x, y + size);
-          ctx.closePath();
-          ctx.fill();
-        } else if (shape === "circle") {
-          ctx.beginPath();
-          ctx.arc(x + size / 2, y + size / 2, size / 2, 0, 2 * Math.PI);
-          ctx.fill();
+          // Generate random coordinates and size for the shape
+          const x = Math.floor(Math.random() * (width - 50));
+          const y = Math.floor(Math.random() * (height - 50));
+          const size = Math.floor(Math.random() * 50) + 10;
+
+          // Draw the shape with the random color
+          ctx.fillStyle = color;
+          if (shape === "square") {
+            ctx.fillRect(x, y, size, size);
+          } else if (shape === "triangle") {
+            ctx.beginPath();
+            ctx.moveTo(x + size / 2, y);
+            ctx.lineTo(x + size, y + size);
+            ctx.lineTo(x, y + size);
+            ctx.closePath();
+            ctx.fill();
+          } else if (shape === "circle") {
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, 2 * Math.PI);
+            ctx.fill();
+          }
         }
-      }
 
-      // Convert the canvas to a PNG buffer
-      const buffer = await htmlToImage.toPng(canvas);
-      return buffer;
+        // Convert the canvas to a PNG buffer
+        canvas.toBlob(resolve, "image/png", 1);
+      });
     },
     async ipfs() {
       this.visible = true;
@@ -408,9 +427,9 @@ export default defineComponent({
         `/ipfs/${cidMetadata.cid.toString()}/${metadataFileDetails.path}`
       );
       console.log("type:", this.metadatafileStat.type);
-      this.tokenURI = `https://crustipfs.live/ipfs/${cidMetadata.cid.toString()}/${
+      this.tokenURI = `https://ipfs.io/ipfs/${cidMetadata.cid.toString()}/${
         metadataFileDetails.path
-      }`;
+      }`; // crustipfs.live
       this.visible = false;
     },
     async pin() {
@@ -431,8 +450,8 @@ export default defineComponent({
       const signer = provider.getSigner();
 
       // Get balance
-      const balance = await provider.getBalance(this.address);
-      console.log("balance:", ethers.utils.formatEther(balance), "SDN");
+      this.balance = await provider.getBalance(this.address);
+      console.log("balance:", ethers.utils.formatEther(this.balance), "SDN");
 
       // Get prices and place orders for each file
       for (const file of this.files) {
