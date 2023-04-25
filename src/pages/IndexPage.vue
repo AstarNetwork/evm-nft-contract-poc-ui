@@ -176,8 +176,8 @@ import { defineComponent, ref } from "vue";
 import { init, useOnboard } from "@web3-onboard/vue";
 import injectedModule from "@web3-onboard/injected-wallets";
 import { ethers } from "ethers";
-import FactoryNFT from "/public/FactoryNFT.json";
-import placeOrder from "/public/placeOrder.md";
+import FactoryNFT from "../static/FactoryNFT.json";
+import placeOrder from "../static/placeOrder.md";
 import { create } from "ipfs-http-client";
 import { Buffer } from "buffer";
 
