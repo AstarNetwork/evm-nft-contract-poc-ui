@@ -324,9 +324,9 @@ export default defineComponent({
           )}, ${Math.floor(Math.random() * 256)})`;
 
           // Generate random coordinates and size for the shape
-          const x = Math.floor(Math.random() * (width - 50));
-          const y = Math.floor(Math.random() * (height - 50));
-          const size = Math.floor(Math.random() * 50) + 10;
+          const x = Math.floor(Math.random() * (width - 256));
+          const y = Math.floor(Math.random() * (height - 256));
+          const size = Math.floor(Math.random() * 256) + 40;
 
           // Draw the shape with the random color
           ctx.fillStyle = color;
@@ -427,9 +427,9 @@ export default defineComponent({
         `/ipfs/${cidMetadata.cid.toString()}/${metadataFileDetails.path}`
       );
       console.log("type:", this.metadatafileStat.type);
-      this.tokenURI = `https://ipfs.io/ipfs/${cidMetadata.cid.toString()}/${
+      this.tokenURI = `https://crustipfs.live/ipfs/${cidMetadata.cid.toString()}/${
         metadataFileDetails.path
-      }`; // crustipfs.live
+      }`;
       this.visible = false;
     },
     async pin() {
