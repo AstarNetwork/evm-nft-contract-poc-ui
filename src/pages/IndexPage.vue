@@ -296,8 +296,8 @@ export default defineComponent({
     async image() {
       return new Promise((resolve) => {
         // Set the size of the image
-        const width = 200;
-        const height = 200;
+        const width = 1024;
+        const height = 1024;
 
         // Create a new canvas
         // const canvas = createCanvas(width, height);
