@@ -149,7 +149,8 @@
         icon="create_new_folder"
         :done="step > 5"
       >
-        To view your NFT, go to the tofuNFT.com marketplace.
+        To view your NFT, go to the tofuNFT.com marketplace. Please note that it
+        may take a minute or two for your NFT to appear.
 
         <q-btn color="purple" target="_blank" :href="tofuURL">View</q-btn>
 
@@ -300,7 +301,6 @@ export default defineComponent({
         const height = 1024;
 
         // Create a new canvas
-        // const canvas = createCanvas(width, height);
         const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
@@ -324,9 +324,9 @@ export default defineComponent({
           )}, ${Math.floor(Math.random() * 256)})`;
 
           // Generate random coordinates and size for the shape
-          const x = Math.floor(Math.random() * (width - 256));
-          const y = Math.floor(Math.random() * (height - 256));
-          const size = Math.floor(Math.random() * 256) + 40;
+          const x = Math.floor(Math.random() * (width - 50));
+          const y = Math.floor(Math.random() * (height - 50));
+          const size = Math.floor(Math.random() * 50) + 10;
 
           // Draw the shape with the random color
           ctx.fillStyle = color;
